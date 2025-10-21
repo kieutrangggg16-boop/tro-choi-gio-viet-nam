@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gió Việt Nam — Trò chơi 7 câu (Địa Lý 12)</title>
+  <style>
+    :root{--accent:#0b79d0;--bg:#f0f8ff}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;margin:0;background:var(--bg);color:#072033}
+    .app{max-width:1100px;margin:18px auto;padding:18px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(7,32,51,0.06)}
+    header{display:flex;gap:12px;align-items:center}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:6px 0 14px;color:#334}
+    .map-wrap{display:flex;gap:14px}
+    .map{flex:1;min-width:360px}
+    .map img{width:100%;height:auto;border-radius:8px;border:1px solid #e1eef9;display:block}
+    .panel{width:460px}
+    .card{background:#fbfeff;padding:14px;border-radius:10px;border:1px solid #e6f0fb}
+    .qnum{font-weight:700;color:var(--accent)}
+    .question{margin:8px 0 12px;font-size:16px}
+    .options{display:grid;gap:8px}
+    .option{padding:10px;border-radius:8px;border:1px solid #d6e7fb;background:#fff;cursor:pointer}
+    .option:hover{background:#eef7ff}
+    .option.correct{border-color:green;background:#e6ffec}
+    .option.wrong{border-color:#e07;background:#ffecef}
+    .controls{display:flex;gap:8px;align-items:center;margin-top:12px}
+    button{background:var(--accent);color:#fff;border:0;padding:9px 12px;border-radius:8px;cursor:pointer}
+    button.secondary{background:#eef3f7;color:var(--accent)}
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+    .score{font-weight:700}
+    .progress{height:10px;background:#eef6ff;border-radius:6px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#31b0d6);width:0%}
+    .meta{font-size:13px;color:#446}
+    .tooltip{position:absolute;background:rgba(0,0,0,0.75);color:#fff;padding:6px 8px;border-radius:6px;font-size:13px;pointer-events:none;display:none}
+    @media (max-width:1000px){.map-wrap{flex-direction:column}.panel{width:100%}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Gió Việt Nam — Trò chơi 7 câu</h1>
+        <p class="lead">Bộ 7 câu trắc nghiệm từ Địa Lý 12 về hoạt động của gió ở Việt Nam. Mỗi câu đúng +10 điểm. Bạn có 30s/câu.</p>
+      </div>
+      <div style="margin-left:auto;text-align:right" class="meta">Tác giả: ChatGPT — Phiên bản dành cho học sinh</div>
+    </header>
+
+    <div class="map-wrap" style="margin-top:14px;position:relative">
+      <div class="map card" id="mapCard">
+        <!-- Bản đồ SVG miễn phí (hình thật, hiển thị từ SimpleMaps) -->
+        <img id="vn-map" src="https://simplemaps.com/static/svg/country/vn/admin1/vn.svg" alt="Bản đồ Việt Nam"/>
+        <p style="font-size:13px;margin-top:8px;color:#445">Rê chuột lên bản đồ để hiện tên vùng: Đông Bắc, Tây Bắc, Đồng bằng sông Hồng, Bắc Trung Bộ, Nam Trung Bộ, Tây Nguyên, Đông Nam Bộ, Đồng bằng sông Cửu Long.</p>
+      </div>
+
+      <div class="panel">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><span class="qnum">Câu <span id="q-index">1</span>/7</span></div>
+            <div class="score">Điểm: <span id="score">0</span></div>
+          </div>
+
+          <div style="margin-top:8px">
+            <div class="question" id="question">...</div>
+            <div class="options" id="options"></div>
+
+            <div class="controls">
+              <button id="nextBtn" class="secondary">Bỏ qua / Câu kế</button>
+              <button id="revealBtn">Xem đáp án</button>
+              <div style="margin-left:auto" class="meta">Thời gian còn lại: <span id="timer">--</span></div>
+            </div>
+
+            <div class="footer">
+              <div class="meta">Mức: Địa Lý 12 — Gió và khí hậu</div>
+              <div style="width:200px">
+                <div class="progress"><i id="prog"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;text-align:center">
+          <button id="startBtn">Bắt đầu</button>
+          <button id="restartBtn" style="margin-left:8px;display:none;background:#e74c3c">Chơi lại</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <script>
+    // Câu hỏi (7 câu) — nội dung và đáp án của bạn
+    const questions = [
+      { q: '. Loại gió nào sau đây gây mưa trên phạm vi cả nước vào mùa hạ?', options:['A. Gió Đông Nam đã biến tính.','B. Gió Tín phong bán cầu Bắc.','C. Gió Tây Nam từ vịnh Bengan.','D. Gió Tín phong bán cầu Nam.'], a:3 },
+      { q: '. Vào mùa đông, gió mùa Đông Bắc ở miền Bắc nước ta thổi xen kẽ với', options:['A. gió Tây ôn đới.','B. Tín phong bán cầu Bắc.','C. phơn Tây Nam.','D. Tín phong bán cầu Nam.'], a:1 },
+      { q: '. Gió nào sau đây gây mưa phùn ở vùng ven biển và các đồng bằng Bắc Bộ, Bắc Trung Bộ?', options:['A. Gió mùa Đông Bắc.','B. Tín phong bán cầu Bắc.','C. Gió phơn Tây Nam.','D. Tín phong bán cầu Nam.'], a:0 },
+      { q: '. Tín phong bán cầu Bắc làm cho khí hậu vùng ven biển Trung Bộ nước ta có', options:['A. lượng bức xạ Mặt Trời lớn.','B. hai mùa khác nhau rõ rệt.','C. mưa nhiều vào thu đông.','D. mưa lớn vào đầu mùa hạ.'], a:2 },
+      { q: '. Gió Tây Nam hoạt động trong thời kì đầu mùa hạ ở nước ta có nguồn gốc từ', options:['A. khối khí nhiệt đới ẩm Bắc Ấn Độ Dương.','B. khối khí chí tuyến Bán cầu Nam.','C. khối khí nhiệt đới Nam Thái Bình Dương.','D. khối khí chí tuyến Bán cầu Bắc.'], a:0 },
+      { q: '. Loại gió chính gây nên hiện tượng được nhắc trong hai câu thơ (Trường Sơn, đông nắng, tây mưa...) là', options:['A. gió Phơn.','B. gió Tín Phong.','C. gió mùa Tây Nam.','D. gió mùa Đông Bắc.'], a:0 },
+      { q: '. Hiện tượng “nồm” của thời tiết miền Bắc vào cuối mùa đông - đầu mùa xuân chủ yếu do gió nào gây nên?', options:['A. Gió mùa Đông Bắc.','B. Gió phơn.','C. Tín phong bán cầu Bắc.','D. Gió mùa Tây Nam.'], a:2 }
+    ];
+
+    // Lưu ý: đáp án theo thứ tự 0..3 từ dataset của bạn (đã cung cấp) — bạn có thể sửa nếu cần
+
+    let index = 0, score = 0, timerInterval = null; const total = questions.length;
+    const qEl = document.getElementById('question');
+    const optsEl = document.getElementById('options');
+    const qIndexEl = document.getElementById('q-index');
+    const scoreEl = document.getElementById('score');
+    const startBtn = document.getElementById('startBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const revealBtn = document.getElementById('revealBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const timerEl = document.getElementById('timer');
+    const progEl = document.getElementById('prog');
+    const tooltip = document.getElementById('tooltip');
+    const mapImg = document.getElementById('vn-map');
+
+    // Regions (approximate vertical bands) for hover tooltip
+    const regions = [
+      {name:'Đông Bắc Bộ', from:0.00, to:0.14},
+      {name:'Tây Bắc Bộ', from:0.14, to:0.20},
+      {name:'Đồng bằng sông Hồng', from:0.20, to:0.26},
+      {name:'Bắc Trung Bộ', from:0.26, to:0.40},
+      {name:'Nam Trung Bộ', from:0.40, to:0.55},
+      {name:'Tây Nguyên', from:0.55, to:0.70},
+      {name:'Đông Nam Bộ', from:0.70, to:0.82},
+      {name:'Đồng bằng sông Cửu Long', from:0.82, to:1.00}
+    ];
+
+    mapImg.addEventListener('mousemove', (e)=>{
+      const rect = mapImg.getBoundingClientRect();
+      const y = (e.clientY - rect.top) / rect.height;
+      const x = (e.clientX - rect.left) / rect.width;
+      let name = null; for(const r of regions){ if(y>=r.from && y<r.to){ name = r.name; break; } }
+      if(name){ tooltip.style.display='block'; tooltip.textContent = name; tooltip.style.left = (e.clientX + 12) + 'px'; tooltip.style.top = (e.clientY + 12) + 'px'; }
+      else tooltip.style.display='none';
+    });
+    mapImg.addEventListener('mouseleave', ()=>{ tooltip.style.display='none'; });
+
+    function startGame(){ index = 0; score = 0; scoreEl.textContent = score; startBtn.style.display='none'; restartBtn.style.display='none'; shuffle(questions); showQuestion(); }
+
+    function showQuestion(){ clearInterval(timerInterval); const cur = questions[index]; qIndexEl.textContent = index+1; qEl.textContent = cur.q; optsEl.innerHTML=''; cur.options.forEach((o,i)=>{ const d = document.createElement('div'); d.className='option'; d.textContent = o; d.dataset.idx = i; d.addEventListener('click', ()=> selectOption(d,i)); optsEl.appendChild(d); }); updateProgress(); startTimer(30); }
+
+    function selectOption(elem,i){ disableOptions(); const correct = questions[index].a; if(i===correct){ elem.classList.add('correct'); score+=10; scoreEl.textContent = score; playFeedback(true); } else{ elem.classList.add('wrong'); playFeedback(false); const children = optsEl.querySelectorAll('.option'); children.forEach(c=>{ if(Number(c.dataset.idx)===correct) c.classList.add('correct'); }); } stopTimer(); }
+
+    function disableOptions(){ optsEl.querySelectorAll('.option').forEach(o=>o.style.pointerEvents='none'); }
+    function enableOptions(){ optsEl.querySelectorAll('.option').forEach(o=>o.style.pointerEvents='auto'); }
+
+    function nextQuestion(){ if(index < total-1){ index++; showQuestion(); } else finishGame(); }
+    function revealAnswer(){ disableOptions(); const correct = questions[index].a; optsEl.querySelectorAll('.option').forEach(c=>{ if(Number(c.dataset.idx)===correct) c.classList.add('correct'); }); stopTimer(); }
+    function finishGame(){ clearInterval(timerInterval); qIndexEl.textContent = total; qEl.textContent = `Kết thúc! Bạn được ${score} điểm trên ${(total*10)}.`; optsEl.innerHTML = `<div style="padding:10px">Cảm ơn đã chơi.</div>`; restartBtn.style.display='inline-block'; startBtn.style.display='none'; showResultMessage(); }
+
+    function showResultMessage(){ const pct = score/(total*10); let msg='Cần cố gắng hơn!'; if(pct>=0.9) msg='Xuất sắc!'; else if(pct>=0.7) msg='Rất tốt!'; else if(pct>=0.5) msg='Tốt!'; setTimeout(()=>{ alert(`Kết quả: ${score} / ${total*10} — ${msg}`); },200); }
+
+    function startTimer(seconds){ let t = seconds; timerEl.textContent = t+"s"; timerInterval = setInterval(()=>{ t--; if(t<=0){ timerEl.textContent='Hết giờ'; clearInterval(timerInterval); timeUp(); } else timerEl.textContent = t+"s"; },1000); }
+    function stopTimer(){ clearInterval(timerInterval); }
+    function timeUp(){ revealAnswer(); setTimeout(()=>{ nextQuestion(); },1500); }
+    function updateProgress(){ const pct = Math.round(((index)/total)*100); progEl.style.width = pct + '%'; }
+    function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
+
+    // Sound feedback (subtle)
+    let audioCtx=null; function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+    function playFeedback(ok){ try{ ensureAudio(); const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.value = ok?880:240; g.gain.value=0.0025; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.12); setTimeout(()=>o.stop(),140); }catch(e){} }
+
+    startBtn.addEventListener('click', startGame);
+    nextBtn.addEventListener('click', ()=>{ nextQuestion(); });
+    revealBtn.addEventListener('click', revealAnswer);
+    restartBtn.addEventListener('click', ()=>{ startGame(); restartBtn.style.display='none'; });
+
+    qEl.textContent = 'Nhấn Bắt đầu để bắt đầu trò chơi. Mỗi câu đúng +10 điểm.';
+    optsEl.innerHTML = '';
+  </script>
+</body>
+</html>
